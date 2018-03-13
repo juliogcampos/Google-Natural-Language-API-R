@@ -1,0 +1,152 @@
+﻿# Análise de Sentimentos com Google Cloud Natural Language API
+# Autor: Júlio Campos
+
+# ETAPA 1 - Limpeza de texto
+
+# 1 - Instalar bibliotecas
+
+	install.packages("RJSONIO")
+	install.packages("stringr")
+
+# 2 - Carregar bibliotecas
+
+	library(RJSONIO)
+	library(stringr)
+
+# 3 - Carregar o log de dados em formato JSON
+
+	log <- RJSONIO::fromJSON("original.json", encoding = "UTF-8")
+	head(log)
+
+# 4 - Selecionar todas as mensagens de e-mails do log: 'article_a_body' é o décimo primeiro nome de cada instância do arquivo JSON
+
+	limpeza <- sapply(log, function(x) x[[11]])
+	head(limpeza)
+
+# 5 - Arrumar espaços em branco (remover excessos)
+
+	arrumarEspacos <- stringr::str_replace(gsub("\\s+", " ", str_trim(limpeza)), "B", "b")
+	limpeza <- arrumarEspacos
+
+# 6 - Transformar todos os caracteres em minúsculos
+
+	minusculos <- gsub(pattern = '([[:upper:]])', perl = TRUE, replacement = '\\L\\1', limpeza)
+	limpeza <- minusculos
+
+# 7 - Remover assinaturas, textos e imagens de e-mails
+
+	# a) remover todos os textos após e incluindo 'att'
+
+	remover <- sub('att.*', '', limpeza)
+	limpeza <- remover
+
+	# b) remover todos os textos após e incluindo 'equipe de operação de serviços'
+
+	remover <- sub('equipe de operação de serviços.*', '', limpeza)
+	limpeza <- remover
+
+	# c) remover todo o texto após e incluindo 'abs' (abraços)
+
+	remover <- sub('abs.*', '', limpeza)
+	limpeza <- remover
+
+	# d) remover imagens dentro de assinaturas. Exemplo: [cid:image003.png@01cfd728.d6519c10]
+
+	remover <- sub('\\[cid:image.*', '', limpeza)
+	limpeza <- remover
+
+	# e) remover números de telefones e celulares com padrões de dígitos como xx-xxxx-xxxx, xx-xxxxxxxxx, xx-xxxxxxxx, xxxx-xxxx, xxxxxxxx
+
+	remover <- gsub('[0-9]{2}-[0-9]{4}-[0-9]{4} | [0-9]{2}-[0-9]{9} | [0-9]{2}-[0-9]{8} | [0-9]{4}-[0-9]{4} | [0-9]{8}', '', limpeza)
+	limpeza <- remover
+
+# 9 - Exibir resultado da limpeza
+
+	limpeza
+
+# 10 - Exportar para TXT
+
+	df <- data.frame(limpeza)
+	write.table(df, "textos.txt", quote = FALSE, row.names = FALSE, col.names = FALSE, fileEncoding = "UTF-8", sep="\t")
+
+
+# ETAPA 2 - Análise de Sentimentos
+
+# googleLanguageR: Call Google's 'Natural Language' API, 'Cloud Translation' API and 'Cloud Speech' API
+# url: https://cran.r-project.org/web/packages/googleLanguageR/index.html
+
+# 11 - Instalar bibliotecas
+
+	install.packages("devtools")
+	devtools::install_github("ropensci/googleLanguageR")
+	install.packages("xlsx")
+
+# 12 - Carregar bibliotecas e realizar autenticação com a chave json
+
+	library(devtools)
+	library(googleLanguageR)
+	library(xlsx)
+
+# 13 - Criar um projeto e realizar autenticação com a chave privada da conta de serviço do Google Cloud Natural Language API
+	
+	# obter a chave em: https://console.cloud.google.com/apis/api/language.googleapis.com/overview
+
+	gl_auth("key.json")
+
+# 14 - Ler o arquivo de texto que contém as mensagens de e-mails
+	
+	textos <- readLines("textos.txt", encoding="UTF-8")
+	textos
+
+# 15 - Executar função de acesso a Google Cloud Natural Language API para realizar a análise de sentimentos nos textos
+
+	nlp_result <- gl_nlp(textos, nlp_type = c("analyzeSentiment"), type = c("PLAIN_TEXT"), language = c("pt"), encodingType = c("UTF8"))
+	nlp_result
+
+# 16 - Armazenar os resultados da análise de sentimentos em listas
+
+	texto <- list()
+	sentimento <- list()
+	score <- list()
+	magnitude <- list()
+
+	length <- length(nlp_result$sentences)
+
+	for(i in 1 : length) {
+
+		texto[[i]] <- textos[i]
+		score[[i]] <- nlp_result$documentSentiment$score[i]
+		magnitude[[i]] <- nlp_result$documentSentiment$magnitude[i]
+
+		score_value <- nlp_result$documentSentiment$score[i]
+
+		if (score_value < -0.2) {
+			sentimento[[i]] <- "Negativo"
+		} else if ((score_value >= -0.2) && (score_value <= 0.2)) {
+			sentimento[[i]] <- "Neutro"
+		} else {
+			sentimento[[i]] <- "Positivo"
+		}
+	}
+
+	head(texto)
+	head(sentimento)
+	head(score)
+	head(magnitude)
+
+# 17 - Converter as listas em vetores
+
+	texto <- unlist(texto, recursive = TRUE, use.names = TRUE)
+	sentimento <- unlist(sentimento, recursive = TRUE, use.names = TRUE)
+	score <- unlist(score, recursive = TRUE, use.names = TRUE)
+	magnitude <- unlist(magnitude, recursive = TRUE, use.names = TRUE)
+
+# 18 - Criar data frame para agrupar todos os vetores em um único objeto
+
+	df <- data.frame(texto, sentimento, score, magnitude)
+	head(df)
+
+# 19 - Salvar data frame em uma planilha no Excel
+
+	write.xlsx2(df, file = "analise_de_sentimentos.xlsx", row.names = FALSE, fileEncoding = "UTF-8")
+
