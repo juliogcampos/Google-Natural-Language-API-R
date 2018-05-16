@@ -6,6 +6,6 @@ Código publicado no artigo "Análise de Sentimentos em Mensagens de E-mails Sob
 
 Trabalho desenvolvido no projeto de iniciação científica "Descoberta de Conhecimento e Mineração aplicadas ao Levantamento e Modelagem de Processos de Negócios", do CNPq.
 
-Orientadoras: Dr.ª Flávia Maria Santoro e Dr.ª Fernanda Araujo Baião - CCET/UNIRIO.
+Orientadoras: Dr.ª Flávia Maria Santoro e Dr.ª Fernanda Araujo Baião - CCET/UNIRIO \
 Coorientador: João Carlos de A.R. Gonçalves
 
